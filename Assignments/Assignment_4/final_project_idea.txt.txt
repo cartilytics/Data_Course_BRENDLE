@@ -1,0 +1,11 @@
+final_project_idea.txt
+
+2. I am in a Stats-2040 class that provided access to tons of data sets, I'll select from there, specifically one titled BaseballSalaries.csv and .xlsx.
+3. The data in these sets is often of multiple categories or variables so it may be necessary to select only one metric to analyze.
+4.
+5.ggplot(BaseballSalaries2019, aes(x = Salary)) +
+  geom_dotplot(binwidth = 0.25, dotsize = 1, fill = "steelblue", color = "black") +
+  labs(title = "Dot Plot of MLB Players Salary",
+       x = "Salary (Millions USD)",
+       y = "Counts") +
+  theme_minimal()

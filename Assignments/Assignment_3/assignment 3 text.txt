@@ -1,0 +1,8 @@
+iris_chr <- data.frame(lapply(iris, as.character))
+Sepal.Area <- iris$Sepal.Length * iris$Sepal.Width
+head(Sepal.Area)
+iris$Sepal.Area <- Sepal.Area
+head(iris)
+big_area_iris <- subset(iris, Sepal.Area > 20)
+head(big_area_iris)
+nrow(big_area_iris)
