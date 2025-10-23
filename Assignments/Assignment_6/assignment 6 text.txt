@@ -1,0 +1,57 @@
+assignment 6 
+
+1.df <- readr::read_csv("biolog_plate_data.csv") |> clean_names()
+names(df); dplyr::glimpse(df); head(df)
+2.long <- df |>
+  rename(absorbance = absorbance)     
+ long <- long |>
+  mutate(type = case_when(
+    str_detect(sample_id, "(?i)soil")  ~ "Soil",
+    str_detect(sample_id, "(?i)water") ~ "Water",
+    TRUE ~ NA_character_
+  ))
+3.long <- df |>
+  pivot_longer(
+    cols = starts_with("hr_"),
+    names_to = "time",
+    names_prefix = "hr_",
+    values_to = "absorbance"
+  ) |>
+  mutate(
+    time = as.numeric(time),
+    type = case_when(
+      str_detect(sample_id, regex("soil", ignore_case = TRUE)) ~ "Soil",
+      str_detect(sample_id, regex("water", ignore_case = TRUE)) ~ "Water",
+      TRUE ~ NA_character_
+    )
+  )
+4.ggplot(long |> filter(dilution == 0.1),
+       aes(x = time, y = absorbance, color = type, group = interaction(sample_id, rep))) +
+  geom_line(alpha = 0.6) +
+  facet_wrap(~ substrate, scales = "free_y") +
+  labs(title = "Just dilution 0.1", x = "Time (hours)", y = "Absorbance") +
+  theme_bw()
+5a.ita_dat <- long |>
+  filter(substrate == "Itaconic Acid") |>
+  filter(!is.na(type)) |>
+  group_by(sample_id, type, dilution, time) |>
+  summarize(mean_abs = mean(absorbance, na.rm = TRUE), .groups = "drop")
+5b.p_anim <- ggplot(ita_dat,
+                 aes(x = time, y = mean_abs, group = sample_id, color = sample_id)) +
+  geom_line(linewidth = 1) +
+  facet_grid(. ~ dilution, labeller = label_both) +
+  labs(
+    title = "Itaconic Acid — mean absorbance (n = 3 per group)",
+    subtitle = "Time: {frame_along} hours",
+    x = "Time (hours)",
+    y = "Absorbance",
+    color = "Sample ID"
+  ) +
+  theme_bw(base_size = 13) +
+  theme(legend.position = "bottom",
+        panel.grid.minor = element_blank()) +
+  transition_reveal(along = time)
+5c.anim <- animate(p_anim, nframes = 200, fps = 20, width = 900, height = 520,
+                renderer = gifski_renderer(loop = TRUE))
+anim_save("itaconic_acid.gif", anim)
+
