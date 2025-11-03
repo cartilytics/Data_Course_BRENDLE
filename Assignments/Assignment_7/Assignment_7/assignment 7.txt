@@ -1,0 +1,85 @@
+assignment 7
+1. dir.create("figs", showWarnings = FALSE)
+library(readr)
+library(janitor)
+
+dat <- read_csv("Utah_Religions_by_County.csv", show_col_types = FALSE) |>
+  clean_names()
+
+names(dat)
+
+group_cols <- setdiff(names(dat), c("county", "pop_2010"))
+relig_long <- dat %>%
+  pivot_longer(
+    cols = all_of(group_cols),
+    names_to = "group",
+    values_to = "adherents"
+  ) %>%
+  mutate(
+    prop = adherents / pop_2010
+  )
+nonrel_by_county <- dat %>%
+  transmute(
+    county,
+    non_rel_prop = non_religious / pop_2010
+  )
+These lines kept the pop values as whole numbers but now the rest of the stats are as proportions/percentages.
+
+relig_long <- relig_long %>%
+  left_join(nonrel_by_county, by = "county")
+cor_pop_vs_prop <- relig_long %>%
+  group_by(group) %>%
+  summarize(
+    r = cor(pop_2010, prop, use = "pairwise.complete.obs"),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(abs(r)))
+
+cor_pop_vs_prop
+
+ggplot(relig_long, aes(x = pop_2010, y = prop)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.7, color = "steelblue") +
+  facet_wrap(~ group, scales = "free_y") +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  scale_x_continuous(labels = label_number(big.mark = ",")) +
+  labs(
+    title = "Population vs Proportion of Each Religious Group (by County)",
+    x = "County population (2010 census)",
+    y = "Proportion of county"
+  ) +
+  theme_bw()
+
+Q1. It doesn't seem like population number doesn't influence the proportions of the religions very much, the counties are distributed fairly normally. Actually, if I'm reading this graph right, all religion proportions decrease with population aside from muslim, but I'm not sure I'm reading this right.
+
+cor_group_vs_nonrel <- relig_long %>%
+  filter(group != "non_religious") %>%                 
+  group_by(group) %>%
+  summarize(
+    r = cor(prop, non_rel_prop, use = "pairwise.complete.obs"),
+    .groups = "drop"
+  ) %>%
+  arrange(r)                                           
+
+cor_group_vs_nonrel
+
+focus_groups <- c("lds", "catholic", "evangelical", "muslim")
+
+ggplot(
+  relig_long %>% filter(group %in% focus_groups),
+  aes(x = non_rel_prop, y = prop)
+) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.7, color = "darkred") +
+  facet_wrap(~ group, scales = "free_y") +
+  scale_x_continuous(labels = percent_format(accuracy = 1)) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  labs(
+    title = "Proportion of Group vs Proportion Non-Religious (by County)",
+    x = "Non-religious proportion",
+    y = "Group proportion"
+  ) +
+  theme_bw()
+
+Q2. Of course, as a religion proportion increases, as long as the other religions stay constant, the non-rel proportion must drop. However, it looks like as LDS proportion increases, non-rel proportion must stay relatively the same because the other religion proportions do drop slightly.
+
