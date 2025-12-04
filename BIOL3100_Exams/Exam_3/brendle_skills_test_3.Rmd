@@ -1,0 +1,110 @@
+---
+title: "exam 3"
+author: "carter"
+date: "2025-12-04"
+output: html_document
+---
+#Chunk 1 - setup and browsing
+```{r setup, message = FALSE}
+library(tidyverse)
+
+fac <- read.csv("FacultySalaries_1995.csv")
+glimpse(fac)
+head(fac)
+```
+#Chunk 2 - to tidy data and checking
+```{r}
+fac_tidy <- fac %>%
+  pivot_longer(
+    cols = c(AvgAssistProfSalary, AvgAssocProfSalary, AvgFullProfSalary),
+    names_to = "Rank",
+    values_to = "Salary"
+  ) %>%
+  mutate(
+    Rank = recode(Rank,
+                  "AvgAssistProfSalary" = "Assist",
+                  "AvgAssocProfSalary"  = "Assoc",
+                  "AvgFullProfSalary"   = "Full"),
+    Rank = factor(Rank, levels = c("Assist", "Assoc", "Full"))
+  )
+glimpse(fac_tidy)
+head(fac_tidy)
+```
+##Task 1 - a plot, showing salary plots by rank
+```{r task1_plot, message = FALSE, warning = FALSE}
+fac_tidy %>%
+  ggplot(aes(x = Rank, y = Salary, fill = Rank)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+  geom_jitter(width = 0.15, alpha = 0.3, size = 1) +
+  facet_grid(~ Tier) +
+  labs(x = "Rank", y = "Salary") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+##Task 2 - ANOVA using a one-way ANOVA with State, Tier, and Rank as independent variables and Salary as the response. It looks like all 3 are statistically significant on salary.
+```{r anova_model, message = FALSE}
+anova_mod <- aov(Salary ~ State + Tier + Rank, data = fac_tidy)
+summary(anova_mod)
+```
+##Task 3 - Juniper Oils - I tidied the Juniper_Oils data by pivoting all chemical concentration columns into a long format, creating a compound column with the chemical name and a concentration column with its measured value.
+```{r load_juniper}
+juniper <- read_csv("Juniper_Oils.csv")
+glimpse(juniper)
+chem_cols <- c("alpha-pinene","para-cymene","alpha-terpineol","cedr-9-ene",
+               "alpha-cedrene","beta-cedrene","cis-thujopsene",
+               "alpha-himachalene","beta-chamigrene","cuparene","compound 1",
+               "alpha-chamigrene","widdrol","cedrol","beta-acorenol",
+               "alpha-acorenol","gamma-eudesmol","beta-eudesmol",
+               "alpha-eudesmol","cedr-8-en-13-ol","cedr-8-en-15-ol",
+               "compound 2","thujopsenal")
+juniper_tidy <- juniper %>%
+  pivot_longer(
+    cols = all_of(chem_cols),
+    names_to = "Compound",
+    values_to = "Concentration"
+  )
+```
+##Task 4 - I ran separate generalized linear models for each compound, testing whether concentration changes as YearsSinceBurn increases. I used broom::tidy() to extract coefficients and p-values. Chemicals with p < 0.05 for YearsSinceBurn were considered significantly affected by fire age.
+```{r task4_plot, message = FALSE, warning = FALSE}
+juniper_tidy %>%
+  ggplot(aes(x = YearsSinceBurn, y = Concentration)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", se = TRUE) +
+  facet_wrap(~ Compound, scales = "free_y") +
+  labs(x = "Years Since Burn", y = "Concentration") +
+  theme_bw()
+
+head(juniper_tidy)
+```
+##Task 5 - GLM. I fit separate generalized linear models for each chemical, using Concentration as the response and YearsSinceBurn as the predictor. I used `broom::tidy()` to extract coefficients and then filtered for the YearsSinceBurn term with p < 0.05. The resulting table shows which chemical concentrations are significantly affected by time since burn.
+```{r task5_glm, message = FALSE, warning = FALSE}
+library(broom)
+library(dplyr)
+
+# Get list of all compounds
+compounds <- unique(juniper_tidy$Compound)
+
+# Fit a glm for each compound and store results
+res_list <- lapply(compounds, function(cmp) {
+  dat <- juniper_tidy %>% filter(Compound == cmp)
+  
+  # fit GLM (gaussian family ~ same as linear model)
+  m <- glm(Concentration ~ YearsSinceBurn, data = dat, family = gaussian())
+  
+  # tidy the model output and add the compound name as a column
+  tidy(m) %>%
+    mutate(Compound = cmp)
+})
+
+# Combine all results into one data frame
+glm_results <- bind_rows(res_list)
+
+# Keep only significant YearsSinceBurn terms
+glm_sig <- glm_results %>%
+  filter(term == "YearsSinceBurn",
+         p.value < 0.05) %>%
+  arrange(p.value)
+
+glm_sig
+```
+
