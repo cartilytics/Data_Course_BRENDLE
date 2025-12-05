@@ -1,0 +1,100 @@
+---
+title: "Assignment 10 - Rough Final"
+author: "carter brendle"
+date: "2025-12-05"
+output: html_document
+---
+###Data Analytics Final - Drug resistance is an incredibly important aspect of our daily lifes interacting with modern medicine. This data set will be analyzing several parts of drug resistance including RBC, resistantdensity, and days infectious.
+
+#Data and Methods - tidying and examing the drugresistance document
+```{r setup, message = FALSE, warning = FALSE}
+library(tidyverse)
+
+drug <- read_csv("DrugResistance.csv")
+
+glimpse(drug)
+summary(drug)
+```
+```{r}
+custom_colors <- c(
+  "Aggressive" = "#F8766D",
+  "Light" = "#7CAE00",
+  "Moderate" = "#00BFC4",
+  "Untreated" = "#C77CFF"
+)
+
+theme_custom <- theme_bw() +
+  theme(
+    plot.title = element_text(face = "bold", size = 14),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    legend.position = "none",
+    panel.grid.minor = element_blank()
+  )
+```
+```{r tidy-data}
+drug_tidy <- drug %>%
+  mutate(
+    Treatment = factor(Treatment),                 # ensure categorical
+    logResist = log10(ResistantDensity + 1),       # transform skewed outcome
+    Infectious = DaysInfectious > 0                # create a logical variable
+  )
+
+glimpse(drug_tidy)
+```
+#So far the data has been slightly tidied and we've glimpsed it.
+#Hypotheses and Testing
+```{r aov-resist}
+aov_resist <- aov(logResist ~ Treatment, data = drug_tidy)
+summary(aov_resist)
+aov_resist <- aov(logResist ~ Treatment, data = drug_tidy)
+summary(aov_resist)
+lm_mod <- lm(DaysInfectious ~ logResist + Treatment, data = drug_tidy)
+summary(lm_mod)
+```
+#Above shows us R-Squared is 0.925 and p < 2.2r-16. Also, treatments differ in resistance levels, once resistance level is included, treatment no longer predicts infection duration. The original treatments effect isn't driving the duration, resistance evolution is.
+#Resistant parasite density strongly predicted how long hosts remained infectious (β = 2.01, p < 0.0001). Hosts with higher resistance levels experienced substantially longer infections. After accounting for resistant density, treatment group was no longer a significant predictor of days infectious (all p > 0.10). This suggests that the primary driver of prolonged infection is the evolution of resistance, rather than the direct effect of the drug. These results indicate that drug treatment can unintentionally select for resistant strains that prolong infection and potentially increase disease transmission.
+
+#Figure 1 - Log of ResistantDensity by Treatment Group.
+```{r figure_logresist, echo=TRUE, message=FALSE, warning=FALSE, fig.width=7, fig.height=5}
+ggplot(drug_tidy, aes(Treatment, logResist, fill = Treatment)) +
+  geom_boxplot(alpha = 0.85) +
+  scale_fill_manual(values = custom_colors) +
+  labs(
+    title = "Drug Treatment Reduces Resistant Parasite Density",
+    x = "Treatment Group",
+    y = "log10(Resistant Density + 1)"
+  ) +
+  theme_custom
+```
+
+#Figure 2 - Days Infectious by Treatment Group.
+```{r fig_daysinfectious, echo=TRUE, message=FALSE, warning=FALSE, fig.width=7, fig.height=5}
+ggplot(drug_tidy, aes(Treatment, DaysInfectious, fill = Treatment)) +
+  geom_boxplot(alpha = 0.85) +
+  scale_fill_manual(values = custom_colors) +
+  labs(
+    title = "Drug Treatment Shortens Infectious Period",
+    x = "Treatment Group",
+    y = "Days Infectious"
+  ) +
+  theme_custom
+```
+
+#Figure 3 - Days Infectious vs. Log ResistantDensity, color-coding is Treatment Group. From Untreated to Aggressive, colors go Purple, Green, Blue, and Red.
+```{r fig_logresist_vs_days, echo=TRUE, message=FALSE, warning=FALSE, fig.width=7, fig.height=5}
+ggplot(drug_tidy, aes(logResist, DaysInfectious, color = Treatment)) +
+  geom_point(size = 3, alpha = 0.75) +
+  geom_smooth(method = "lm", se = TRUE) +
+  scale_color_manual(values = custom_colors) +
+  labs(
+    title = "Higher Resistance Density Leads to Longer Infection",
+    x = "log10(Resistant Density + 1)",
+    y = "Days Infectious"
+  ) +
+  theme_custom
+```
+
+##Conclusion - Drug treatment was highly effective in reducing resistant parasite load and infection duration. Animals receiving aggressive and moderate treatments show improved outcomes. The severity of drug resistance was strongly predictive of infection duration. Higher resistant parasite density increases number of days infectious, suggest drug-resistant parasites are more taxing on host fitness and are critical for transmission. I guess my take away is while drug treatments do work, resistance undermines success by prolonging infectiousness.
+
+
